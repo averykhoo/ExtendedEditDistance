@@ -17,12 +17,12 @@ def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution
     hyp = ' ' + hyp + ' '
     ref = ' ' + ref + ' '
 
-    dp_table = []
+    debug_table = []
 
-    # coverage Tracker
-    lj_coverage = [0] * (len(hyp) + 1)
+    # coverage: count how many times each char is visited
+    visit_coverage = [0] * (len(hyp) + 1)
 
-    # row[i] stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid.
+    # the i-th row stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid.
     # see: https://www.aclweb.org/anthology/E06-1031/
     row = [0] + [1] * len(hyp)  # CDER initialisation: <0,0> = 0, the rest =1
 
@@ -35,25 +35,29 @@ def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution
                                          row[hyp_idx] + (0 if ref_char == hyp_char else substitution),
                                          row[hyp_idx + 1] + insertion])
 
+        # this is the next char to be visited
         min_cost, min_cost_idx = min((cost, idx) for idx, cost in enumerate(next_row))
-        lj_coverage[min_cost_idx] = lj_coverage[min_cost_idx] + 1
+
+        # increment the visit count
+        visit_coverage[min_cost_idx] += 1
 
         # Long Jumps for white spaces
         if ref_char.isspace():
             long_jump_cost = alpha + min_cost
             next_row = [min(x, long_jump_cost) for x in next_row]
 
-        dp_table.append(row)
+        debug_table.append(row)
         row = next_row
 
     # overall error == final cell of final row
     errors = row[-1]
-    weighted_coverage = rho * sum([x for x in lj_coverage if x > 1])
+    weighted_coverage = rho * sum(x for x in visit_coverage if x > 1)
+    # weighted_coverage = rho * sum(1 for x in visit_coverage if x != 1) <-- shouldn't this be the correct impl
     result = (errors + weighted_coverage) / (len(ref) + weighted_coverage)
 
     # debug
-    dp_table.append(row)
-    for row in dp_table:
+    debug_table.append(row)
+    for row in debug_table:
         # print(row)
         pass
 
