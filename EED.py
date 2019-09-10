@@ -85,13 +85,14 @@ def eed_c(hyp: list,
                 minimum = next_row[min_ind]
             # }
         # }
+        assert min_ind == next_row.index(min(next_row))
 
         # lj[minInd] = lj[minInd] + 1;
         lj[min_ind] = lj[min_ind] + 1
 
         # //Long Jumps 32 is the magic number for white spaces
         # if(ref[w-1] == 32){
-        if chr(ref[w - 1]).isspace():
+        if ref[w - 1].isspace():
 
             # float longJump = alpha + nextRow[minInd];
             long_jump = alpha + next_row[min_ind]
@@ -129,6 +130,9 @@ def eed_c(hyp: list,
             coverage += lj[i]
             # }
         # }
+
+    assert coverage == sum([x if x > 1 else 0 for x in lj])
+
     # float errors = row[row.size()-1];
     errors = row[-1]
 
@@ -143,17 +147,17 @@ def eed(hyp: list, ref: list):
     ref.insert(0, " ")
     ref.append(" ")
 
-    hyp_c = [bytes_to_int(x.encode('utf-8')) for x in hyp]
-    ref_c = [bytes_to_int(x.encode('utf-8')) for x in ref]
+    # hyp_c = [bytes_to_int(x.encode('utf-8')) for x in hyp]
+    # ref_c = [bytes_to_int(x.encode('utf-8')) for x in ref]
 
     alpha = 2.0
     deletion = 0.2
     insertion = 1.0
     substitution = 1.0
     rho = 0.3
-    norm = len(ref_c)
+    norm = len(ref)
 
-    result = eed_c(hyp_c, ref_c, alpha, deletion, insertion, substitution, rho, norm)
+    result = eed_c(hyp, ref, alpha, deletion, insertion, substitution, rho, norm)
 
     return min(1.0, result)
 
@@ -287,7 +291,16 @@ if __name__ == '__main__':
     # main()
     hline = list('The relationship between Obama and Netanyahu has been strained for years.')
     rline = list('Relations between Obama and Netanyahu have been strained for years.')
-
     print(eed(hline, rline))
+
+    hline = list('The relationship between Obama and Netanyahu has been strained for years.')
+    rline = list('Relations between Obama and Netanyahu have been strained for years.')
     print(eed(rline, hline))
-    print(eed_python(hline, rline), eed_python(rline, hline))
+
+    hline = list('The relationship between Obama and Netanyahu has been strained for years.')
+    rline = list('Relations between Obama and Netanyahu have been strained for years.')
+    print(eed_python(hline, rline))
+
+    hline = list('The relationship between Obama and Netanyahu has been strained for years.')
+    rline = list('Relations between Obama and Netanyahu have been strained for years.')
+    print(eed_python(rline, hline))
