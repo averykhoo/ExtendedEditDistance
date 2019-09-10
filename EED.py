@@ -1,48 +1,55 @@
-# -*- coding:utf-8 -*-
-import ctypes
-import os
-
 import util
 
 
-# port directly from C code just to be sure
-def eed(hyp, ref, alpha=2.0, deletion=0.2, insertion=1.0, substitution=1.0, rho=0.3):
-    hyp.insert(0, " ")
-    hyp.append(" ")
-    ref.insert(0, " ")
-    ref.append(" ")
+def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution=1.0, rho=0.3):
+    """
+    see: https://www.aclweb.org/anthology/W19-5359/
+
+    :param hyp: hypothesis sentence
+    :param ref: reference sentence
+    :param alpha: coverage cost
+    :param deletion: deletion cost
+    :param insertion: insertion cost
+    :param substitution: substitution cost
+    :param rho: coverage weight
+    :return: EED score of hyp given ref (not symmetric)
+    """
+    hyp = ' ' + hyp + ' '
+    ref = ' ' + ref + ' '
 
     dp_table = []
 
     # coverage Tracker
-    lj = [0] * (len(hyp) + 1)
+    lj_coverage = [0] * (len(hyp) + 1)
 
-    # row[i] stores cost of cheapest path from (0,0) to (i,l) in CDER aligment grid.
-    row = [0.0] + [1.0] * len(hyp)  # CDER initialisation: <0,0> = 0, the rest =1
+    # row[i] stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid.
+    # see: https://www.aclweb.org/anthology/E06-1031/
+    row = [0] + [1] * len(hyp)  # CDER initialisation: <0,0> = 0, the rest =1
 
     for ref_idx, ref_char in enumerate(ref):
         next_row = [float('inf')] * (len(hyp) + 1)
-        next_row[0] = row[0] + 1.0
+        next_row[0] = row[0] + 1
 
         for hyp_idx, hyp_char in enumerate(hyp):
             next_row[hyp_idx + 1] = min([next_row[hyp_idx] + deletion,
                                          row[hyp_idx] + (0 if ref_char == hyp_char else substitution),
                                          row[hyp_idx + 1] + insertion])
 
-        min_val, min_idx = min((val, i) for i, val in enumerate(next_row))
-        lj[min_idx] = lj[min_idx] + 1
+        min_cost, min_cost_idx = min((cost, idx) for idx, cost in enumerate(next_row))
+        lj_coverage[min_cost_idx] = lj_coverage[min_cost_idx] + 1
 
         # Long Jumps for white spaces
         if ref_char.isspace():
-            long_jump = alpha + min_val
-            next_row = [min(x, long_jump) for x in next_row]
+            long_jump_cost = alpha + min_cost
+            next_row = [min(x, long_jump_cost) for x in next_row]
 
         dp_table.append(row)
         row = next_row
 
-    coverage = sum([x for x in lj if x > 1])
-
+    # overall error == final cell of final row
     errors = row[-1]
+    weighted_coverage = rho * sum([x for x in lj_coverage if x > 1])
+    result = (errors + weighted_coverage) / (len(ref) + weighted_coverage)
 
     # debug
     dp_table.append(row)
@@ -50,15 +57,16 @@ def eed(hyp, ref, alpha=2.0, deletion=0.2, insertion=1.0, substitution=1.0, rho=
         # print(row)
         pass
 
-    return min(1.0, (errors + rho * coverage) / (len(ref) + rho * coverage))
+    return min(1.0, result)
+
+
+# Distance measure used for substitutions/identity operation
+def distance(refWord, hypWord):
+    return 0 if refWord == hypWord else 1
 
 
 # Python Implementation of EED, ~30x slower than the C++ one
 def eed_python(hyp, ref):
-    # Distance measure used for substitutions/identity operation
-    def distance(refWord, hypWord):
-        return 0 if refWord == hypWord else 1
-
     hyp.insert(0, " ")
     hyp.append(" ")
     ref.insert(0, " ")
@@ -98,8 +106,8 @@ def eed_python(hyp, ref):
 # Provides System scoring with full preprocessing in the case where EED is used as an import
 def score(hypIn, refIn):
     import codecs
-    hyp = [util.preprocess(x) for x in open(hypIn, 'r', 'utf-8').readlines()]
-    ref = [util.preprocess(x) for x in open(refIn, 'r', 'utf-8').readlines()]
+    hyp = [util.preprocess(x) for x in open(hypIn, mode='rt', encoding='utf-8').readlines()]
+    ref = [util.preprocess(x) for x in open(refIn, mode='rt', encoding='utf-8').readlines()]
     scores = []
     for (h, r) in zip(hyp, ref):
         h, r = list(h), list(r)
@@ -149,11 +157,11 @@ if __name__ == '__main__':
     print(eed_python(list(hyp_sent), list(ref_sent)))
     print(eed_python(list(ref_sent), list(hyp_sent)))
 
-    print(eed(list(hyp_sent), list(ref_sent)))
-    print(eed(list(ref_sent), list(hyp_sent)))
+    print(eed(hyp_sent, ref_sent))
+    print(eed(ref_sent, hyp_sent))
 
     hyp_sent = 'say hello world'
     ref_sent = 'hello world say'
 
-    print(eed(list(hyp_sent), list(ref_sent)))
+    print(eed(hyp_sent, ref_sent))
     print(eed_python(list(hyp_sent), list(ref_sent)))
