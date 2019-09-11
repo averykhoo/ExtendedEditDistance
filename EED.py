@@ -1,23 +1,29 @@
 import util
 
 
-def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution=1.0, rho=0.3):
+def eed(hyp: str, ref: str, deletion=0.2, insertion=1, substitution=1, jump=2, rho=0.3):
     """
     see: https://www.aclweb.org/anthology/W19-5359/
 
     :param hyp: hypothesis sentence
     :param ref: reference sentence
-    :param alpha: coverage cost
     :param deletion: deletion cost
     :param insertion: insertion cost
     :param substitution: substitution cost
+    :param jump: jump cost
     :param rho: coverage weight
     :return: EED score of hyp given ref (not symmetric)
     """
+    # start and end with whitespace to facilitate jumps
+    # works better when you use the most common whitespace (usually spaces)
     hyp = ' ' + hyp + ' '
     ref = ' ' + ref + ' '
 
-    debug_table = []
+    # only for debugging
+    debug_table = []  # full DP table
+    debug_str = []  # matched string
+    debug_cost = []
+    debug_idx = []
 
     # coverage: count how many times each char is visited
     visit_coverage = [0] * (len(hyp) + 1)
@@ -40,10 +46,13 @@ def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution
 
         # increment the visit count
         visit_coverage[min_cost_idx] += 1
+        debug_str.append(hyp[min_cost_idx-1])
+        debug_cost.append(min_cost)
+        debug_idx.append(min_cost_idx)
 
-        # Long Jumps for white spaces
+        # long jumps for white spaces
         if ref_char.isspace():
-            long_jump_cost = alpha + min_cost
+            long_jump_cost = jump + min_cost
             next_row = [min(x, long_jump_cost) for x in next_row]
 
         debug_table.append(row)
@@ -52,11 +61,15 @@ def eed(hyp: str, ref: str, alpha=2.0, deletion=0.2, insertion=1.0, substitution
     # overall error == final cell of final row
     errors = row[-1]
     weighted_coverage = rho * sum(x for x in visit_coverage if x > 1)
-    # weighted_coverage = rho * sum(1 for x in visit_coverage if x != 1) <-- shouldn't this be the correct impl
+    # weighted_coverage = rho * sum(1 for x in visit_coverage if x != 1)  # shouldn't this be the correct impl
     result = (errors + weighted_coverage) / (len(ref) + weighted_coverage)
 
     # debug
     debug_table.append(row)
+    # print(hyp)
+    # print(''.join(debug_str))
+    # print(ref)
+    # print(list(zip(debug_str, debug_idx)))
     for row in debug_table:
         # print(row)
         pass
@@ -164,8 +177,8 @@ if __name__ == '__main__':
     print(eed(hyp_sent, ref_sent))
     print(eed(ref_sent, hyp_sent))
 
-    hyp_sent = 'say hello world'
-    ref_sent = 'hello world say'
+    hyp_sent = 'qwerty say asdfg hello world'
+    ref_sent = 'hello world asdfg say qwerty'
 
     print(eed(hyp_sent, ref_sent))
     print(eed_python(list(hyp_sent), list(ref_sent)))
