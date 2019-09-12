@@ -1,67 +1,97 @@
 import util
 
 
-def eed(hyp: str, ref: str, deletion=0.2, insertion=1, substitution=1, jump=2, rho=0.3):
+def eed(hyp, ref, deletion=0.2, insertion=1.0, substitution=1.0, jump=2.0, rho=0.3):
     """
-    see: https://www.aclweb.org/anthology/W19-5359/
+    Extended Edit Distance (https://www.aclweb.org/anthology/W19-5359)
+    Calculates the (non-symmetric) EED from hypothesis to reference string
+    Note: EED builds on  CDER (https://www.aclweb.org/anthology/E06-1031)
+
+    with default settings, the algorithm seems to:
+    - skip the first char in each hyp word, even if it matches the ref
+    - repeat the last hyp character until it sees a space in the ref
+    - but it doesn't skip the first char if there's no jump
+    - the c code stores the entire DP table for no reason
+
+    other notes:
+    - skipping the first char seems to be solved by setting jump cost to 0.9
+    - setting jump cost higher than insertion cost tends to insert space as first word char
+    - setting jump cost higher than substitution cost tends to insert random chars instead
+    - rho changes nothing since it's computed at the end
+    - attempts to integrate rho into the cost function failed miserably
 
     :param hyp: hypothesis sentence
+    :type hyp: str
     :param ref: reference sentence
+    :type ref: str
     :param deletion: deletion cost
+    :type deletion: float
     :param insertion: insertion cost
+    :type insertion: float
     :param substitution: substitution cost
+    :type substitution: float
     :param jump: jump cost
-    :param rho: coverage weight
+    :type jump: float
+    :param rho: coverage cost weight
+    :type rho: float
     :return: EED score of hyp given ref (not symmetric)
+    :rtype: float
     """
-    # start and end with whitespace to facilitate jumps
+
+    # start and end with whitespace to facilitate jumps to front/end
     # works better when you use the most common whitespace (usually spaces)
+    # this step is defined as part of the algorithm
     hyp = ' ' + hyp + ' '
     ref = ' ' + ref + ' '
 
     # only for debugging
-    debug_table = []  # full DP table
+    debug_table = []  # store full DP table
     debug_str = []  # matched string
-    debug_cost = []
-    debug_idx = []
+    debug_cost = []  # costs
+    debug_idx = []  # indices of matched string
 
     # coverage: count how many times each char is visited
-    visit_coverage = [0] * (len(hyp) + 1)
+    visit_coverage = [0.0] * (len(hyp) + 1)
 
-    # the i-th row stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid.
-    # see: https://www.aclweb.org/anthology/E06-1031/
-    row = [0] + [1] * len(hyp)  # CDER initialisation: <0,0> = 0, the rest =1
+    # the i-th row stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid
+    row = [0.0] + [1.0] * len(hyp)  # CDER initial row
 
     for ref_idx, ref_char in enumerate(ref):
         next_row = [float('inf')] * (len(hyp) + 1)
-        next_row[0] = row[0] + 1
 
+        # add 1 to the cost per row (same as edit distance)
+        next_row[0] = row[0] + 1.0
+
+        # do the normal edit distance calculation for the hyp sentence
         for hyp_idx, hyp_char in enumerate(hyp):
             next_row[hyp_idx + 1] = min([next_row[hyp_idx] + deletion,
-                                         row[hyp_idx] + (0 if ref_char == hyp_char else substitution),
+                                         row[hyp_idx] + (0.0 if ref_char == hyp_char else substitution),
                                          row[hyp_idx + 1] + insertion])
 
-        # this is the next char to be visited
+        # this is the next char to be visited according to the EED algo
         min_cost, min_cost_idx = min((cost, idx) for idx, cost in enumerate(next_row))
 
         # increment the visit count
-        visit_coverage[min_cost_idx] += 1
-        debug_str.append(hyp[min_cost_idx-1])
-        debug_cost.append(min_cost)
-        debug_idx.append(min_cost_idx)
+        visit_coverage[min_cost_idx] += 1.0
 
-        # long jumps for white spaces
+        # long jump allowed only if ref char is whitespace
+        # the original algo only checks if ord(ref_char) == 32 (ascii space)
         if ref_char.isspace():
             long_jump_cost = jump + min_cost
             next_row = [min(x, long_jump_cost) for x in next_row]
 
+        # for debug
         debug_table.append(row)
+        debug_str.append(hyp[min_cost_idx - 1])
+        debug_cost.append(min_cost)
+        debug_idx.append(min_cost_idx)
+
         row = next_row
 
     # overall error == final cell of final row
     errors = row[-1]
-    weighted_coverage = rho * sum(x for x in visit_coverage if x > 1)
-    # weighted_coverage = rho * sum(1 for x in visit_coverage if x != 1)  # shouldn't this be the correct impl
+    weighted_coverage = rho * sum(x for x in visit_coverage if x > 1.0)
+    # weighted_coverage = rho * sum(1.0 for x in visit_coverage if x != 1.0)  # shouldn't this be the correct impl
     result = (errors + weighted_coverage) / (len(ref) + weighted_coverage)
 
     # debug
@@ -170,6 +200,15 @@ if __name__ == '__main__':
     # main()
     hyp_sent = 'The relationship between Obama and Netanyahu has been strained for years.'
     ref_sent = 'Relations between Obama and Netanyahu have been strained for years.'
+
+    print(eed_python(list(hyp_sent), list(ref_sent)))
+    print(eed_python(list(ref_sent), list(hyp_sent)))
+
+    print(eed(hyp_sent, ref_sent))
+    print(eed(ref_sent, hyp_sent))
+
+    hyp_sent = 'super calloused fragile mystic hexed by haliotosis'
+    ref_sent = 'supercalifragilisticexpialidocious'
 
     print(eed_python(list(hyp_sent), list(ref_sent)))
     print(eed_python(list(ref_sent), list(hyp_sent)))
