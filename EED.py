@@ -111,9 +111,10 @@ def score(hypIn, refIn):
     import codecs
     hyp = [util.preprocess(x) for x in open(hypIn, mode='rt', encoding='utf-8').readlines()]
     ref = [util.preprocess(x) for x in open(refIn, mode='rt', encoding='utf-8').readlines()]
+    assert len(hyp) == len(ref)
     scores = []
     for (h, r) in zip(hyp, ref):
-        h, r = list(h), list(r)
+        # h, r = list(h), list(r)
         score = eed(h, r)
         scores.append(score)
     return sum(scores) / len(scores)
@@ -133,14 +134,14 @@ def main():
     import sys
     import codecs
     args = parse_args()
-    hlines = [util.preprocess(x, "en") for x in codecs.open(args.hypothesis, 'r', 'utf-8').readlines()]
-    rlines = [util.preprocess(x, "en") for x in codecs.open(args.reference, 'r', 'utf-8').readlines()]
+    hlines = [util.preprocess(x, "en") for x in list(open(args.hypothesis, mode='rt', encoding='utf-8'))]
+    rlines = [util.preprocess(x, "en") for x in list(open(args.reference, mode='rt', encoding='utf-8'))]
     if len(hlines) != len(rlines):
         print("Error: input file has {0} lines, but reference has {1} lines.".format(len(hlines), len(rlines)))
         sys.exit(1)
     scores = []
     for lineno, (hline, rline) in enumerate(zip(hlines, rlines), start=1):
-        rline, hline = list(rline), list(hline)
+        # rline, hline = list(rline), list(hline)
         score = eed(hline, rline)
         scores.append(score)
         if args.verbose:

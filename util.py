@@ -9,18 +9,19 @@ import codecs
 
 def preprocess_en(s):
 
-    s = s.rstrip()  # trail space, tab, newlineの削除
+    # s = s.rstrip()  # trail space, tab, newlineの削除
    
     s = s.replace('.', ' .')
     s = s.replace('!', ' !')
     s = s.replace('?', ' ?')
     s = s.replace(',', ' ,')
 
-    s = re.sub(r'\s+', r' ', s)  # スペースの個数正規化
+    # s = re.sub(r'\s+', ' ', s)  # スペースの個数正規化
+    s = ' '.join(s.split())
     s = re.sub(r'(\d) ([.,]) (\d)', r'\1\2\3', s)  # 0 . 1 -> 0.1
-    s = re.sub(r'(Dr|Jr|Prof|Rev|Gen|Mr|Mt|Mrs|Ms) .', r'\1.', s)  # Mr . -> Mr.
+    s = re.sub(r'(Dr|Jr|Prof|Rev|Gen|Mr|Mt|Mrs|Ms) \.', r'\1.', s)  # Mr . -> Mr.
     s = s.replace(u'e . g .', u'e.g.')
-    s = s.replace(u'i . e .', u'e.g.')
+    s = s.replace(u'i . e .', u'i.e.')
     s = s.replace(u'U . S .', u'U.S.')
     return s
 
