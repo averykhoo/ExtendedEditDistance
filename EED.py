@@ -51,7 +51,7 @@ def eed(hyp, ref, deletion=0.2, insertion=1.0, substitution=1.0, jump=2.0, rho=0
     debug_idx = []  # indices of matched string
 
     # coverage: count how many times each char is visited
-    visit_coverage = [0.0] * (len(hyp) + 1)
+    visit_coverage = [-1.0] * (len(hyp) + 1)
 
     # the i-th row stores cost of cheapest path from (0,0) to (i,l) in CDER alignment grid
     row = [0.0] + [1.0] * len(hyp)  # CDER initial row
@@ -90,7 +90,7 @@ def eed(hyp, ref, deletion=0.2, insertion=1.0, substitution=1.0, jump=2.0, rho=0
 
     # overall error == final cell of final row
     errors = row[-1]
-    weighted_coverage = rho * sum(x for x in visit_coverage if x > 1.0)
+    weighted_coverage = rho * sum(x if x >= 0.0 else 1.0 for x in visit_coverage)
     # weighted_coverage = rho * sum(1.0 for x in visit_coverage if x != 1.0)  # shouldn't this be the correct impl
     result = (errors + weighted_coverage) / (len(ref) + weighted_coverage)
 
